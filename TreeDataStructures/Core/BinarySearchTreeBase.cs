@@ -323,6 +323,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
         IEnumerator<TreeEntry<TKey, TValue>>
     {
         private Stack<TNode>? _stack;
+        private Stack<TNode>? _result;
         private readonly TNode? _root;
         private TNode? _currentNode;
         private bool _started;
@@ -432,18 +433,25 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
                         return false;
                     }
                 }
+                
+                
             } else if (_strategy == TraversalStrategy.PreOrder)
             {
                 if (_root == null)
                 {
                     return false;
                 }
-                _currentNode = _root;
 
                 if (!_started)
                 {
+                    _stack = new Stack<TNode>();
+                    _currentNode = _root;
                     _started = true;
                     return true;
+                    
+                } else if (_currentNode == null)
+                {
+                    return false;
                 }
                 else if (_currentNode.Left != null && _currentNode.Right != null && _started)
                 {
@@ -471,32 +479,140 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
                     return false;
                 }
                 
+                
+                
             } else if (_strategy == TraversalStrategy.PostOrder)
             {
-                Stack<TNode>? tops = new Stack<TNode>();
-
                 if (_root == null)
                 {
                     return false;
                 }
+                _stack =  new Stack<TNode>();
+                _result = new Stack<TNode>();
                 
-                _currentNode = _root;
+                
+                
 
-                while (_currentNode.Left != null || _currentNode.Right != null)
+            } else if (_strategy == TraversalStrategy.PostOrderReverse)
+            {
+                if (_root == null)
                 {
-                    if (_currentNode.Left != null && _currentNode.Right != null)
+                    return false;
+                }
+
+                if (!_started)
+                {
+                    _stack = new Stack<TNode>();
+                    _currentNode = _root;
+                    _started = true;
+                    return true;
+                    
+                } else if (_currentNode == null)
+                {
+                    return false;
+                }
+                else if (_currentNode.Left != null && _currentNode.Right != null && _started)
+                {
+                    _stack?.Push(_currentNode);
+                    _currentNode = _currentNode.Right;
+                    return true;
+                }
+                else if (_currentNode.Right != null && _started)
+                {
+                    _currentNode = _currentNode.Right;
+                    return true;
+                }
+                else if (_currentNode.Left != null && _started)
+                {
+                    _currentNode = _currentNode.Left;
+                    return true;
+                }
+                else if (_started)
+                {
+                    if (_stack?.Count > 0)
                     {
-                        tops.Push(_currentNode);
+                        _currentNode = _stack?.Pop().Left;
+                        return true; 
                     }
-                    else if (_currentNode.Left != null)
+                    return false;
+                }
+                
+                
+            } else if (_strategy == TraversalStrategy.InOrderReverse)
+            {
+                
+                if (!_started)
+                {
+                    _started = true;
+                    _stack = new Stack<TNode>();
+                    
+                    if (_root == null)
                     {
-                        _stack?.Push(_currentNode);
-                        _currentNode = _currentNode.Left;
+                        return false;
                     }
-                    else if (_currentNode.Right != null)
+                    
+                    _currentNode = _root;
+                    _stack.Push(_currentNode);
+                    while (_currentNode.Right != null)
                     {
-                        _stack?.Push(_currentNode);
+                        _stack.Push(_currentNode.Right);
                         _currentNode = _currentNode.Right;
+                    }
+
+                    if (_stack.Count > 0)
+                    {
+                        _currentNode = _stack.Pop();
+                    }
+                    
+                    if (_currentNode != null)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    if (_currentNode == null)
+                    {
+                        throw new InvalidOperationException();
+                    }
+
+                    if (_currentNode.Left == null)
+                    {
+                        if (_stack?.Count > 0)
+                        {
+                            _currentNode = _stack.Pop();
+                            return true;
+                        }
+                        else
+                        {
+                            _currentNode = null;
+                            _started = false;
+                            return false;
+                        }
+                    }
+
+                    _currentNode = _currentNode.Left;
+                    _stack?.Push(_currentNode);
+                    while (_currentNode.Right != null)
+                    {
+                        _stack?.Push(_currentNode.Right);
+                        _currentNode = _currentNode.Right;
+                    }
+
+                    if (_stack?.Count > 0)
+                    {
+                        _currentNode = _stack.Pop();
+                        return true;
+                    }
+                    else
+                    {
+                        _currentNode = null;
+                        _started = false;
+                        return false;
                     }
                 }
             }
