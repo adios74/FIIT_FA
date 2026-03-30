@@ -23,7 +23,13 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     {
         TNode node = CreateNode(key, value);
         var current = Root;
-        Root ??= node;
+        if (Root == null)
+        {
+            Root = node;
+            Count++;
+            OnNodeAdded(node);
+            return;
+        }
         while (current != null)
         {
             int cmp = Comparer.Compare(key, current.Key);
@@ -40,7 +46,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
                     break;
                 }
             }
-            else
+            else if (cmp > 0)
             {
                 if (current.Right != null)
                 {
@@ -52,6 +58,10 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
                     node.Parent = current;
                     break;
                 }
+            }
+            else
+            {
+                throw new ArgumentException("Элемент уже есть в дереве.");
             }
         }
 
@@ -119,6 +129,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             if (newElement.Parent != node)
             {
                 Transplant(newElement, newElement.Right);
+                OnNodeRemoved(newElement.Parent, newElement.Right);
                 newElement.Right = node.Right;
                 newElement.Right.Parent = newElement;
             }
@@ -188,97 +199,109 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
 
     protected void RotateLeft(TNode x)
     {
-        TNode? y = x.Parent;
-        if (y == null)
+        if (x.Right == null)
         {
-            throw new ArgumentException("Поворот невозможен из-за отсутствия элемента-родителя.");
+            throw new ArgumentException("Поворот невозможен.");
+        }
+        TNode y = x.Right;
+        x.Right = y.Left;
+        if (y.Left != null)
+        {
+            y.Left.Parent = x;
         }
         
-        if (y.Parent == null)
+        y.Parent = x.Parent;
+        if (x.Parent == null)
         {
-            Root = x;
-            x.Parent = null;
+            Root = y;
+        } else if (x.IsLeftChild)
+        {
+            x.Parent.Left = y;
         }
         else
         {
-            if (y.IsLeftChild)
-            {
-                y.Parent.Left = x;
-            }
-            else
-            {
-                y.Parent.Right = x;
-            }
-            x.Parent = y.Parent;
+            x.Parent.Right = y;
         }
 
-        y.Parent = x;
-        y.Right = x.Left;
-        x.Left?.Parent = y;
-        x.Left = y;
+        y.Left = x;
+        x.Parent = y;
     }
 
     protected void RotateRight(TNode y)
     {
-        TNode? x = y.Parent;
-        if (x == null)
+        if (y.Left == null)
         {
-            throw new ArgumentException("Поворот невозможен из-за отсутствия элемента-родителя.");
+            throw new ArgumentException("Поворот невозможен.");
         }
-
-        if (x.Parent == null)
+        TNode x = y.Left;
+        y.Left = x.Right;
+        if (x.Right != null)
         {
-            Root = y;
-            y.Parent = null;
+            x.Right.Parent = y;
+        }
+        
+        x.Parent = y.Parent;
+        if (y.Parent == null)
+        {
+            Root = x;
+        } else if (y.IsLeftChild)
+        {
+            y.Parent.Left = x;
         }
         else
         {
-            if (x.IsLeftChild)
-            {
-                x.Parent.Left = y;
-            }
-            else
-            {
-                x.Parent.Right = y;
-            }
-            y.Parent = x.Parent;
+            y.Parent.Right = x;
         }
-        
-        x.Parent = y;
-        x.Left = y.Right;
-        y.Right?.Parent = x;
-        y.Right = x;
+
+        x.Right = y;
+        y.Parent = x;
     }
     
     protected void RotateBigLeft(TNode x)
     {
-        RotateRight(x);
+        if (x.Right == null)
+        {
+            throw new ArgumentException("Поворот невозможен.");
+        }
+        TNode y = x.Right;
+        RotateRight(y);
         RotateLeft(x);
     }
     
     protected void RotateBigRight(TNode y)
     {
-        RotateLeft(y);
+        if (y.Left == null)
+        {
+            throw new ArgumentException("Поворот невозможен.");
+        }
+        TNode x = y.Left;
+        RotateLeft(x);
         RotateRight(y);
     }
     
     protected void RotateDoubleLeft(TNode x)
     {
-        if (x.Parent == null)
-        {
-            throw new ArgumentException("Поворот невозможен из-за отсутствия элемента-родителя.");
-        }
-        RotateLeft(x.Parent);
+        // if (x.Right == null)
+        // {
+        //     throw new ArgumentException("Поворот невозможен.");
+        // }
+        // RotateLeft(x);
+        // RotateLeft(x.Right);
+        
+        RotateLeft(x);
         RotateLeft(x);
     }
     
     protected void RotateDoubleRight(TNode y)
     {
-        if (y.Parent == null)
-        {
-            throw new ArgumentException("Поворот невозможен из-за отсутствия элемента-родителя.");
-        }
-        RotateRight(y.Parent);
+        // if (y.Left == null)
+        // {
+        //     throw new ArgumentException("Поворот невозможен.");
+        // }
+        // RotateRight(y);
+        // RotateRight(y.Left);
+
+        RotateRight(y);
         RotateRight(y);
     }
     
@@ -300,19 +323,12 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     }
     #endregion
     
-    public IEnumerable<TreeEntry<TKey, TValue>>  InOrder() => InOrderTraversal(Root);
-    
-    private IEnumerable<TreeEntry<TKey, TValue>>  InOrderTraversal(TNode? node)
-    {
-        if (node == null) {  yield break; }
-        throw new NotImplementedException();
-    }
-    
-    public IEnumerable<TreeEntry<TKey, TValue>>  PreOrder() => throw new NotImplementedException();
-    public IEnumerable<TreeEntry<TKey, TValue>>  PostOrder() => throw new NotImplementedException();
-    public IEnumerable<TreeEntry<TKey, TValue>>  InOrderReverse() => throw new NotImplementedException();
-    public IEnumerable<TreeEntry<TKey, TValue>>  PreOrderReverse() => throw new NotImplementedException();
-    public IEnumerable<TreeEntry<TKey, TValue>>  PostOrderReverse() => throw new NotImplementedException();
+    public IEnumerable<TreeEntry<TKey, TValue>>  InOrder() => new TreeIterator(Root, TraversalStrategy.InOrder);
+    public IEnumerable<TreeEntry<TKey, TValue>>  PreOrder() => new TreeIterator(Root, TraversalStrategy.PreOrder);
+    public IEnumerable<TreeEntry<TKey, TValue>>  PostOrder() => new TreeIterator(Root, TraversalStrategy.PostOrder);
+    public IEnumerable<TreeEntry<TKey, TValue>>  InOrderReverse() => new TreeIterator(Root, TraversalStrategy.InOrderReverse);
+    public IEnumerable<TreeEntry<TKey, TValue>>  PreOrderReverse() => new TreeIterator(Root, TraversalStrategy.PreOrderReverse);
+    public IEnumerable<TreeEntry<TKey, TValue>>  PostOrderReverse() => new TreeIterator(Root, TraversalStrategy.PostOrderReverse);
     
     /// <summary>
     /// Внутренний класс-итератор. 
@@ -336,6 +352,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             _root = root;
             _strategy = strategy;
             _stack = null;
+            _result = null;
             _currentNode = null;
             _started = false;
         }
@@ -437,106 +454,115 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
                 
             } else if (_strategy == TraversalStrategy.PreOrder)
             {
-                if (_root == null)
+                if (!_started)
+                {
+                    _stack = new Stack<TNode>();
+                    if (_root != null)
+                    {
+                        _stack.Push(_root);
+                    }
+                }
+
+                _started = true;
+
+                if (_stack == null)
+                {
+                    return false;
+                }
+                
+                if (_stack.Count == 0)
                 {
                     return false;
                 }
 
-                if (!_started)
+                _currentNode = _stack.Pop();
+
+                if (_currentNode.Right != null)
                 {
-                    _stack = new Stack<TNode>();
-                    _currentNode = _root;
-                    _started = true;
-                    return true;
-                    
-                } else if (_currentNode == null)
-                {
-                    return false;
+                    _stack.Push(_currentNode.Right);
                 }
-                else if (_currentNode.Left != null && _currentNode.Right != null && _started)
+
+                if (_currentNode.Left != null)
                 {
-                    _stack?.Push(_currentNode);
-                    _currentNode = _currentNode.Left;
-                    return true;
+                    _stack.Push(_currentNode.Left);
                 }
-                else if (_currentNode.Left != null && _started)
-                {
-                    _currentNode = _currentNode.Left;
-                    return true;
-                }
-                else if (_currentNode.Right != null && _started)
-                {
-                    _currentNode = _currentNode.Right;
-                    return true;
-                }
-                else if (_started)
-                {
-                    if (_stack?.Count > 0)
-                    {
-                        _currentNode = _stack?.Pop().Right;
-                        return true; 
-                    }
-                    return false;
-                }
-                
-                
-                
+
+                return true;
+
             } else if (_strategy == TraversalStrategy.PostOrder)
             {
-                if (_root == null)
+                if (!_started)
                 {
+                    _started = true;
+                    if (_root == null)
+                    {
+                        return false;
+                    }
+                    _stack = new Stack<TNode>();
+                    _result = new Stack<TNode>();
+                    _stack.Push(_root);
+                    
+                    while (_stack.Count > 0)
+                    {
+                        var node = _stack.Pop();
+                        _result.Push(node);
+                        if (node.Left != null)
+                        {
+                            _stack.Push(node.Left);
+                        }
+
+                        if (node.Right != null)
+                        {
+                            _stack.Push(node.Right);
+                        }
+                    }
+                }
+
+                if (_result == null || _result.Count == 0)
+                {
+                    _currentNode = null;
                     return false;
                 }
-                _stack =  new Stack<TNode>();
-                _result = new Stack<TNode>();
-                
-                
-                
+
+                _currentNode = _result.Pop();
+                return true;
 
             } else if (_strategy == TraversalStrategy.PostOrderReverse)
             {
-                if (_root == null)
+                if (!_started)
+                {
+                    _stack = new Stack<TNode>();
+                    if (_root != null)
+                    {
+                        _stack.Push(_root);
+                    }
+                }
+
+                _started = true;
+
+                if (_stack == null)
+                {
+                    return false;
+                }
+                
+                if (_stack.Count == 0)
                 {
                     return false;
                 }
 
-                if (!_started)
+                _currentNode = _stack.Pop();
+
+                if (_currentNode.Left != null)
                 {
-                    _stack = new Stack<TNode>();
-                    _currentNode = _root;
-                    _started = true;
-                    return true;
-                    
-                } else if (_currentNode == null)
-                {
-                    return false;
+                    _stack.Push(_currentNode.Left);
                 }
-                else if (_currentNode.Left != null && _currentNode.Right != null && _started)
+
+                if (_currentNode.Right != null)
                 {
-                    _stack?.Push(_currentNode);
-                    _currentNode = _currentNode.Right;
-                    return true;
+                    _stack.Push(_currentNode.Right);
                 }
-                else if (_currentNode.Right != null && _started)
-                {
-                    _currentNode = _currentNode.Right;
-                    return true;
-                }
-                else if (_currentNode.Left != null && _started)
-                {
-                    _currentNode = _currentNode.Left;
-                    return true;
-                }
-                else if (_started)
-                {
-                    if (_stack?.Count > 0)
-                    {
-                        _currentNode = _stack?.Pop().Left;
-                        return true; 
-                    }
-                    return false;
-                }
-                
+
+                return true;
                 
             } else if (_strategy == TraversalStrategy.InOrderReverse)
             {
@@ -615,6 +641,43 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
                         return false;
                     }
                 }
+            } else if (_strategy == TraversalStrategy.PreOrderReverse)
+            {
+                if (!_started)
+                {
+                    _started = true;
+                    if (_root == null)
+                    {
+                        return false;
+                    }
+                    _stack = new Stack<TNode>();
+                    _result = new Stack<TNode>();
+                    _stack.Push(_root);
+                    
+                    while (_stack.Count > 0)
+                    {
+                        var node = _stack.Pop();
+                        _result.Push(node);
+                        if (node.Right != null)
+                        {
+                            _stack.Push(node.Right);
+                        }
+
+                        if (node.Left != null)
+                        {
+                            _stack.Push(node.Left);
+                        }
+                    }
+                }
+
+                if (_result == null || _result.Count == 0)
+                {
+                    _currentNode = null;
+                    return false;
+                }
+
+                _currentNode = _result.Pop();
+                return true;
             }
             throw new NotImplementedException("Strategy not implemented");
         }
@@ -623,6 +686,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
         {
             _currentNode = null;
             _stack?.Clear();
+            _result?.Clear();
             _started = false;
         }
 
@@ -631,6 +695,8 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
         {
             _currentNode = null;
             _stack?.Clear();
+            _result?.Clear();
+            _started = false;
         }
     }
     
@@ -650,7 +716,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     public bool Contains(KeyValuePair<TKey, TValue> item) => ContainsKey(item.Key);
     public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
     {
-        
+        // скопировать элементы дерева в порядке возрастания InOrder в массив, начиная с указанного индекса
     }
     public bool Remove(KeyValuePair<TKey, TValue> item) => Remove(item.Key);
 }
