@@ -15,8 +15,31 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     
     public bool IsReadOnly => false;
 
-    public ICollection<TKey> Keys => throw new NotImplementedException();
-    public ICollection<TValue> Values => throw new NotImplementedException();
+    public ICollection<TKey> Keys
+    {
+        get
+        {
+            var keys =  new List<TKey>();
+            foreach (var item in InOrder())
+            {
+                keys.Add(item.Key);
+            }
+            return keys;
+        }
+    }
+
+    public ICollection<TValue> Values
+    {
+        get
+        {
+            var values = new List<TValue>();
+            foreach (var item in InOrder())
+            {
+                values.Add(item.Value);
+            }
+            return values;
+        }
+    }
     
     
     public virtual void Add(TKey key, TValue value)
@@ -61,7 +84,8 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             }
             else
             {
-                throw new ArgumentException("Элемент уже есть в дереве.");
+                current.Value = value;
+                return;
             }
         }
 
@@ -201,7 +225,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     {
         if (x.Right == null)
         {
-            throw new ArgumentException("Поворот невозможен.");
+            throw new ArgumentException("Левый поворот невозможен.");
         }
         TNode y = x.Right;
         x.Right = y.Left;
@@ -231,7 +255,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     {
         if (y.Left == null)
         {
-            throw new ArgumentException("Поворот невозможен.");
+            throw new ArgumentException("Правый поворот невозможен.");
         }
         TNode x = y.Left;
         y.Left = x.Right;
@@ -261,7 +285,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     {
         if (x.Right == null)
         {
-            throw new ArgumentException("Поворот невозможен.");
+            throw new ArgumentException("Большой левый поворот невозможен.");
         }
         TNode y = x.Right;
         RotateRight(y);
@@ -272,7 +296,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     {
         if (y.Left == null)
         {
-            throw new ArgumentException("Поворот невозможен.");
+            throw new ArgumentException("Большой правый поворот невозможен.");
         }
         TNode x = y.Left;
         RotateLeft(x);
@@ -703,9 +727,39 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     
     private enum TraversalStrategy { InOrder, PreOrder, PostOrder, InOrderReverse, PreOrderReverse, PostOrderReverse }
     
+    
+    private class KeyValueEnumerator : IEnumerator<KeyValuePair<TKey, TValue>>
+    {
+        private TreeIterator _iterator;
+
+        public KeyValueEnumerator(TNode? root)
+        {
+            _iterator = new TreeIterator(root, TraversalStrategy.InOrder);
+        }
+
+        public KeyValuePair<TKey, TValue> Current
+        {
+            get
+            {
+                var entry = _iterator.Current;
+                return new KeyValuePair<TKey, TValue>(entry.Key, entry.Value);
+            }
+        }
+
+        object IEnumerator.Current => Current;
+
+        public bool MoveNext() => _iterator.MoveNext();
+
+        public void Reset() => _iterator.Reset();
+
+        public void Dispose() => _iterator.Dispose();
+    }
+    
+    
+    
     public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
     {
-        throw new NotImplementedException();
+        return new KeyValueEnumerator(Root);
     }
     
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
@@ -716,7 +770,25 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     public bool Contains(KeyValuePair<TKey, TValue> item) => ContainsKey(item.Key);
     public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
     {
-        // скопировать элементы дерева в порядке возрастания InOrder в массив, начиная с указанного индекса
+        if (array == null)
+        {
+            throw new ArgumentNullException(nameof(array));
+        }
+
+        if (arrayIndex < 0 || arrayIndex > array.Length)
+        {
+            throw new ArgumentException("Некорректный индекс.");
+        }
+
+        if (array.Length - arrayIndex < Count)
+        {
+            throw new ArgumentException("Невозможно уместить все элементы в массив.");
+        }
+
+        foreach (var item in InOrder())
+        {
+            array[arrayIndex++] = new  KeyValuePair<TKey, TValue>(item.Key, item.Value);
+        }
     }
     public bool Remove(KeyValuePair<TKey, TValue> item) => Remove(item.Key);
 }
