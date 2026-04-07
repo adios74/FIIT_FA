@@ -27,12 +27,14 @@ public class Treap<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, TreapNode<
         {
             (left, right) = Split(root.Right, key);
             root.Right = left;
+            left?.Parent = root;
             return (root, right);
         }
         else
         {
             (left, right) = Split(root.Left, key);
             root.Left = right;
+            right?.Parent = root;
             return (left, root);
         }
         
@@ -55,12 +57,16 @@ public class Treap<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, TreapNode<
             
         } else if (left.Priority > right.Priority)
         {
-            left.Right = Merge(left.Right, right);
+            var merged = Merge(left.Right, right);
+            left.Right = merged;
+            merged?.Parent = left;
             return left;
             
         } else
         {
-            right.Left = Merge(left, right.Left);
+            var merged = Merge(left, right.Left);
+            right.Left = merged;
+            merged?.Parent = right;
             return right;
         }
     }
@@ -76,6 +82,8 @@ public class Treap<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, TreapNode<
         }
         var newNode = CreateNode(key, value);
         var (left, right) = Split(Root, key);
+        left?.Parent = null;
+        right?.Parent = null;
         var newRoot = Merge(left, newNode);
         Root = Merge(newRoot, right);
         Count++;
@@ -97,6 +105,7 @@ public class Treap<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, TreapNode<
         else if (node.IsLeftChild)
         {
             node.Parent.Left = newNode;
+            
         }
         else if (node.IsRightChild)
         {
