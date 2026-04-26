@@ -12,10 +12,7 @@ public class AvlTree<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, AvlNode<
 
     private void ChangeHeight(AvlNode<TKey, TValue> node)
     {
-        if (node != null)
-        {
-            node.Height = 1 + Math.Max(CalculateHeight(node.Right), CalculateHeight(node.Left));
-        }
+        node.Height = 1 + Math.Max(CalculateHeight(node.Right), CalculateHeight(node.Left));
     }
 
     private void RotateLeftAvl(AvlNode<TKey, TValue> node)

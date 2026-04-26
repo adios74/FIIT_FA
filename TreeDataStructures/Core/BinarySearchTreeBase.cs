@@ -305,26 +305,12 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     
     protected void RotateDoubleLeft(TNode x)
     {
-        // if (x.Right == null)
-        // {
-        //     throw new ArgumentException("Поворот невозможен.");
-        // }
-        // RotateLeft(x);
-        // RotateLeft(x.Right);
-        
         RotateLeft(x);
         RotateLeft(x);
     }
     
     protected void RotateDoubleRight(TNode y)
     {
-        // if (y.Left == null)
-        // {
-        //     throw new ArgumentException("Поворот невозможен.");
-        // }
-        // RotateRight(y);
-        // RotateRight(y.Left);
-
         RotateRight(y);
         RotateRight(y);
     }
