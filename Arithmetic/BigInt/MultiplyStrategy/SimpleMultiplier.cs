@@ -17,6 +17,17 @@ internal class SimpleMultiplier : IMultiplier
         uint[] product = MultiplyValue(aDigits, bDigits);
         return new BetterBigInteger(product, productIsNegative);
     }
+    
+    
+    public static uint[] MultiplyArrays(uint[] a, uint[] b)
+    {
+        if (a.Length == 1 && a[0] == 0 || b.Length == 1 && b[0] == 0)
+        {
+            return new uint[] { 0 };
+        }
+            
+        return MultiplyValue(a, b);
+    }
 
 
     private static bool IsZero(BetterBigInteger value)
@@ -73,16 +84,4 @@ internal class SimpleMultiplier : IMultiplier
         }
         return result;
     }
-    
-    
-    public static uint[] MultiplyArrays(uint[] a, uint[] b)
-    {
-        if (a.Length == 1 && a[0] == 0 || b.Length == 1 && b[0] == 0)
-        {
-            return new uint[] { 0 };
-        }
-            
-        return MultiplyValue(a, b);
-    }
-    
 }

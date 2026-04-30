@@ -6,7 +6,6 @@ namespace Arithmetic.BigInt.MultiplyStrategy;
 
 internal class KaratsubaMultiplier : IMultiplier
 {
-    private readonly SimpleMultiplier _simple = new();
 
     public BetterBigInteger Multiply(BetterBigInteger a, BetterBigInteger b)
     {
@@ -177,24 +176,24 @@ internal class KaratsubaMultiplier : IMultiplier
         return result;
     }
 
-    private static void AddShifted(uint[] dest, uint[] source, int shift)
+    private static void AddShifted(uint[] destination, uint[] source, int shift)
     {
         ulong carry = 0;
         
         for (int i = 0; i < source.Length; i++)
         {
             int idx = i + shift;
-            ulong sum = dest[idx] + (ulong)source[i] + carry;
-            dest[idx] = (uint)sum;
+            ulong sum = destination[idx] + (ulong)source[i] + carry;
+            destination[idx] = (uint)sum;
             carry = sum >> 32;
         }
         
         int k = source.Length + shift;
         
-        while (carry != 0 && k < dest.Length)
+        while (carry != 0 && k < destination.Length)
         {
-            ulong sum = dest[k] + carry;
-            dest[k] = (uint)sum;
+            ulong sum = destination[k] + carry;
+            destination[k] = (uint)sum;
             carry = sum >> 32;
             k++;
         }

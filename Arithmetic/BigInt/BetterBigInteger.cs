@@ -556,20 +556,44 @@ public sealed class BetterBigInteger : IBigInteger
         return FromSystemBigInteger(result);
     }
 
+    
+    private static readonly IMultiplier Simple = new SimpleMultiplier();
+    private static readonly IMultiplier Karatsuba = new KaratsubaMultiplier();
+    private static readonly IMultiplier Fft = new FftMultiplier();
 
     public static BetterBigInteger operator *(BetterBigInteger a, BetterBigInteger b)
-        => new SimpleMultiplier().Multiply(a, b);
+    {
+        if (IsZero(a) || IsZero(b))
+            return Zero;
+
+        int max = Math.Max(a.GetDigits().Length, b.GetDigits().Length);
+        
+        IMultiplier multiplier = max switch
+        {
+            <= 64 => Simple,
+            <= 256 => Karatsuba,
+            >= 1024 => Fft,
+            _ => Karatsuba
+        };
+
+        return multiplier.Multiply(a, b);
+    }
 
     
     
     public static BetterBigInteger operator ~(BetterBigInteger a)
     {
         if (IsZero(a))
+        {
             return new BetterBigInteger(new uint[] { 1 }, true);
+        }
 
         var (words, sign) = ToTwosComplement(a);
+        
         for (int i = 0; i < words.Length; i++)
+        {
             words[i] = ~words[i];
+        }
     
         return FromTwosComplement(words);
     }
@@ -928,6 +952,7 @@ public sealed class BetterBigInteger : IBigInteger
         {
             chars.Add('-');
         }
+        
         chars.Reverse();
         return new string(chars.ToArray());
     }
