@@ -422,22 +422,7 @@ public sealed class BetterBigInteger : IBigInteger
             result[i] = (uint)difference;
         }
 
-        int last = result.Length - 1;
-        while (last >= 0 && result[last] == 0)
-        {
-            last--;
-        }
-
-        if (last < 0)
-        {
-            return new uint[] { 0 };
-        }
-
-        if (last < result.Length - 1)
-        {
-            Array.Resize(ref result, last + 1);
-        }
-        return result;
+        return DeleteZeros(result);
     }
 
 
@@ -457,73 +442,13 @@ public sealed class BetterBigInteger : IBigInteger
 
 
     public static BetterBigInteger Zero => new BetterBigInteger(new uint[] { 0 }, false);
-
     
     
-    private static BigInteger ToSystemBigInteger(BetterBigInteger value)
-    {
-        var digits = value.GetDigits();
-        byte[] bytes = new byte[digits.Length * 4];
-        
-        for (int i = 0; i < digits.Length; i++)
-        {
-            uint word = digits[i];
-            bytes[i * 4] = (byte)word;
-            bytes[i * 4 + 1] = (byte)(word >> 8);
-            bytes[i * 4 + 2] = (byte)(word >> 16);
-            bytes[i * 4 + 3] = (byte)(word >> 24);
-        }
-        var abs = new BigInteger(bytes, isUnsigned: true, isBigEndian: false);
-
-        if (value.IsNegative)
-        {
-            return -abs;
-        }
-        
-        return abs;
-    }
-
-    private static BetterBigInteger FromSystemBigInteger(BigInteger value)
-    {
-        if (value == 0)
-        {
-            return Zero;
-        }
-
-        bool isNegative = value < 0;
-        BigInteger absValue = isNegative ? -value : value;
-        byte[] bytes = absValue.ToByteArray();
-        int length = bytes.Length;
-        
-        if (length > 0 && bytes[length - 1] == 0)
-        {
-            length--;
-        }
-
-        var digits = new List<uint>();
-        for (int i = 0; i < length; i += 4)
-        {
-            uint word = 0;
-            for (int j = 0; j < 4 && i + j < length; j++)
-            {
-                word |= (uint)bytes[i + j] << (j * 8);
-            }
-            digits.Add(word);
-        }
-
-        while (digits.Count > 1 && digits[digits.Count - 1] == 0)
-        {
-            digits.RemoveAt(digits.Count - 1);
-        }
-
-        return new BetterBigInteger(digits, isNegative);
-    }
-
     public static BetterBigInteger operator /(BetterBigInteger a, BetterBigInteger b)
     {
         if (IsZero(b))
         {
-            throw new DivideByZeroException("Деление на ноль.");
+            throw new DivideByZeroException();
         }
 
         if (IsZero(a))
@@ -531,18 +456,16 @@ public sealed class BetterBigInteger : IBigInteger
             return Zero;
         }
         
-        BigInteger bia = ToSystemBigInteger(a);
-        BigInteger bib =  ToSystemBigInteger(b);
-        BigInteger result = bia / bib;
-        return FromSystemBigInteger(result);
+        var (result, _) = DivideValue(a.GetArrayOfDigits(), b.GetArrayOfDigits());
+        bool sign = a.IsNegative != b.IsNegative;
+        return new BetterBigInteger(result, sign);
     }
-
 
     public static BetterBigInteger operator %(BetterBigInteger a, BetterBigInteger b)
     {
         if (IsZero(b))
         {
-            throw new DivideByZeroException("Деление на ноль.");
+            throw new DivideByZeroException();
         }
 
         if (IsZero(a))
@@ -550,12 +473,103 @@ public sealed class BetterBigInteger : IBigInteger
             return Zero;
         }
         
-        BigInteger bia = ToSystemBigInteger(a);
-        BigInteger bib =  ToSystemBigInteger(b);
-        BigInteger result = bia % bib;
-        return FromSystemBigInteger(result);
+        var (_, result) = DivideValue(a.GetArrayOfDigits(), b.GetArrayOfDigits());
+        return new BetterBigInteger(result, a.IsNegative);
     }
+    
+    
+    private static (uint[] Quotient, uint[] Remainder) DivideValue(uint[] a, uint[] b)
+    {
+        if (b.Length == 1 && b[0] == 0)
+        {
+            throw new DivideByZeroException();
+        }
 
+        if (a.Length < b.Length)
+        {
+            return (new uint[] { 0 }, a);
+        }
+
+        uint[] quotient = new uint[a.Length - b.Length + 1];
+        uint[] remainder = new uint[a.Length];
+        Array.Copy(a, remainder, a.Length);
+
+        int shift = a.Length - b.Length;
+        
+        for (int i = shift; i >= 0; i--)
+        {
+            ulong guess;
+            int highIndex = i + b.Length;
+            int lowIndex = i + b.Length - 1;
+
+            if (remainder.Length > highIndex && b.Length > 0 && remainder[highIndex] == b[^1])
+            {
+                guess = uint.MaxValue;
+            }
+            else
+            {
+                ulong highPart = (highIndex < remainder.Length) ? remainder[highIndex] : 0UL;
+                ulong lowPart = (lowIndex >= 0 && lowIndex < remainder.Length) ? remainder[lowIndex] : 0UL;
+                ulong twoDigit = (highPart << 32) | lowPart;
+                guess = twoDigit / b[^1];
+            }
+
+            while (true)
+            {
+                uint[] temp = MultiplyByUint(b, (uint)guess);
+                uint[] shiftedTemp = new uint[i + temp.Length];
+                Array.Copy(temp, 0, shiftedTemp, i, temp.Length);
+                
+                if (CompareValue(remainder, shiftedTemp) >= 0)
+                {
+                    remainder = SubtractValues(remainder, shiftedTemp);
+                    break;
+                }
+                guess--;
+            }
+            quotient[i] = (uint)guess;
+        }
+
+        quotient = DeleteZeros(quotient);
+        remainder = DeleteZeros(remainder);
+        return (quotient, remainder);
+    }
+    
+    private static uint[] MultiplyByUint(uint[] a, uint b)
+    {
+        uint[] result = new uint[a.Length + 1];
+        ulong carry = 0;
+        
+        for (int i = 0; i < a.Length; i++)
+        {
+            ulong product = (ulong)a[i] * b + carry;
+            result[i] = (uint)product;
+            carry = product >> 32;
+        }
+        
+        result[a.Length] = (uint)carry;
+        return DeleteZeros(result);
+    }
+    
+    private static uint[] DeleteZeros(uint[] digits)
+    {
+        int last = digits.Length - 1;
+        while (last >= 0 && digits[last] == 0)
+        {
+            last--;
+        }
+
+        if (last < 0)
+        {
+            return new uint[] { 0 };
+        }
+        
+        if (last < digits.Length - 1)
+        {
+            Array.Resize(ref digits, last + 1);
+        }
+        return digits;
+    }
     
     private static readonly IMultiplier Simple = new SimpleMultiplier();
     private static readonly IMultiplier Karatsuba = new KaratsubaMultiplier();
@@ -691,23 +705,8 @@ public sealed class BetterBigInteger : IBigInteger
         {
             temporary[i] = ~temporary[i];
         }
-        
-        int last = temporary.Length - 1;
-        
-        while (last >= 0 && temporary[last] == 0)
-        {
-            last--;
-        }
 
-        if (last < 0)
-        {
-            return Zero;
-        }
-
-        if (last < temporary.Length - 1)
-        {
-            Array.Resize(ref temporary, last + 1);
-        }
+        DeleteZeros(temporary);
 
         return new BetterBigInteger(temporary, true);
     }
@@ -767,7 +766,6 @@ public sealed class BetterBigInteger : IBigInteger
 
         return FromTwosComplement(result);
     }
-
 
     public static BetterBigInteger operator &(BetterBigInteger a, BetterBigInteger b) 
         => BitwiseOperation(a, b, '&');
